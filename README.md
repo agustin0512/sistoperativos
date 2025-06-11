@@ -2,58 +2,38 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
-
-void heavy_computation(int seconds, size_t mem_mb) {
-    // Convertir MB a bytes
-    size_t mem_size = mem_mb * 1024 * 1024;
-
-    // Reservar memoria
-    char *memory_block = malloc(mem_size);
-    if (memory_block == NULL) {
-        perror("No se pudo alocar memoria");
-        return;
-    }
-
-    // Rellenar la memoria al principio para forzar que sea usada
-    for (size_t i = 0; i < mem_size; i++) {
-        memory_block[i] = (char)(i % 256);
-    }
-
-    clock_t start = clock();
-    while ((clock() - start) / CLOCKS_PER_SEC < seconds) {
-        // Acceder a la memoria periódicamente para mantenerla en uso
-        for (size_t i = 0; i < mem_size; i += 4096) {
-            memory_block[i] = (char)((memory_block[i] + 1) % 256);
-        }
-    }
-
-    free(memory_block);
-}
 
 int main(int argc, char *argv[]) {
     int rank, size;
-    int stress_time = 30;     // Tiempo por defecto
+    int seconds = 30;         // Tiempo por defecto
     size_t mem_mb = 100;      // Memoria por defecto en MB
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (argc > 1) {
-        stress_time = atoi(argv[1]);
+    if (argc > 1) seconds = atoi(argv[1]);
+    if (argc > 2) mem_mb = atoi(argv[2]);
+
+    printf("Proceso %d: Ejecutando %d segundos con %zu MB de RAM\n", rank, seconds, mem_mb);
+
+    // Reservar memoria
+    char *mem = malloc(mem_mb * 1024 * 1024);
+    if (!mem) {
+        perror("malloc");
+        MPI_Finalize();
+        return 1;
     }
-    if (argc > 2) {
-        mem_mb = (size_t)atoi(argv[2]);
+
+    // Usar CPU y RAM
+    time_t end = time(NULL) + seconds;
+    while (time(NULL) < end) {
+        for (size_t i = 0; i < mem_mb * 1024 * 1024; i += 4096)
+            mem[i] = (char)(i % 256);  // Acceso periódico
     }
 
-    printf("Proceso %d de %d iniciando carga de %d segundos con %zu MB de RAM.\n", rank, size, stress_time, mem_mb);
-    fflush(stdout);
-
-    heavy_computation(stress_time, mem_mb);
-
-    printf("Proceso %d finalizó su carga.\n", rank);
-    fflush(stdout);
+    free(mem);
+    printf("Proceso %d: Terminado\n", rank);
 
     MPI_Finalize();
     return 0;
