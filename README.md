@@ -1,9 +1,9 @@
-# sistoperativos
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+
 void heavy_computation(int seconds, size_t mem_mb) {
     // Convertir MB a bytes
     size_t mem_size = mem_mb * 1024 * 1024;
@@ -15,15 +15,15 @@ void heavy_computation(int seconds, size_t mem_mb) {
         return;
     }
 
-    // Rellenar memoria para evitar optimizaciones del sistema
+    // Rellenar la memoria al principio para forzar que sea usada
     for (size_t i = 0; i < mem_size; i++) {
         memory_block[i] = (char)(i % 256);
     }
 
     clock_t start = clock();
     while ((clock() - start) / CLOCKS_PER_SEC < seconds) {
-        // Acceso aleatorio a la memoria para mantenerla en uso
-        for (size_t i = 0; i < mem_size; i += 4096) {  // paso de 4KB (una página)
+        // Acceder a la memoria periódicamente para mantenerla en uso
+        for (size_t i = 0; i < mem_size; i += 4096) {
             memory_block[i] = (char)((memory_block[i] + 1) % 256);
         }
     }
@@ -33,8 +33,8 @@ void heavy_computation(int seconds, size_t mem_mb) {
 
 int main(int argc, char *argv[]) {
     int rank, size;
-    int stress_time = 30;      // Tiempo por defecto
-    size_t mem_mb = 100;       // Memoria por defecto (100 MB)
+    int stress_time = 30;     // Tiempo por defecto
+    size_t mem_mb = 100;      // Memoria por defecto en MB
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         stress_time = atoi(argv[1]);
     }
     if (argc > 2) {
-        mem_mb = atoi(argv[2]);
+        mem_mb = (size_t)atoi(argv[2]);
     }
 
     printf("Proceso %d de %d iniciando carga de %d segundos con %zu MB de RAM.\n", rank, size, stress_time, mem_mb);
