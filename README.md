@@ -1,5 +1,9 @@
 # sistoperativos
-
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
 void heavy_computation(int seconds, size_t mem_mb) {
     // Convertir MB a bytes
     size_t mem_size = mem_mb * 1024 * 1024;
